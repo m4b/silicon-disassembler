@@ -1,0 +1,37 @@
+<dom-module id="instruction-list">
+  <style>
+    :host {
+      display: block;
+    }
+
+    span {
+      margin-right: 4px;
+    }
+  </style>
+  <template>
+    <template is="dom-repeat" items="[[instructions]]" as="inst">
+      <span>[[_addr2string(inst.address)]]</span>
+      <span>[[inst.mnemonic]]</span>
+      <span>[[inst.op_str]]</span>
+      <br>
+    </template>
+  </template>
+  <script>
+    (function() {
+      Polymer({
+        is: 'instruction-list',
+
+        properties: {
+          instructions: {
+            type: Array,
+            value: []
+          }
+        },
+
+        _addr2string: function(addr) {
+          return addr.toString(16);
+        }
+      });
+    })();
+  </script>
+</dom-module>

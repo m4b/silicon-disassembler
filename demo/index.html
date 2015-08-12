@@ -1,0 +1,96 @@
+<!doctype html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, minimum-scale=1.0, initial-scale=1.0, user-scalable=yes">
+  <title>silicon-disassembler Demo</title>
+  <script src="../../webcomponentsjs/webcomponents-lite.js"></script>
+  <link rel="import" href="../silicon-disassembler.html">
+  <link rel="import" href="instruction-list.html">
+  <style>
+    span {
+      margin-right: 4px;
+    }
+    instruction-list {
+      padding-top: 16px;
+    }
+    #bytes {
+      width: 100%;
+    }
+  </style>
+</head>
+
+<body>
+
+  <p>An example of
+    <code>&lt;silicon-disassembler&gt;</code>:</p>
+
+  <span>Memory:</span>
+  <input id="memory" value="0x1000"></input>
+  <span>Offset:</span>
+  <input id="offset" value="0"></input>
+  <br>
+  <span>Bytes:</span>
+  <input id="bytes" value="0x55 0x48 0x8b 0x05 0xb8 0x13 0x00 0x00 0x55"></input>
+
+  <instruction-list id="list"></instruction-list>
+  <!-- [0x55, 0x48, 0x8b, 0x05, 0xb8, 0x13, 0x00, 0x00] -->
+  <silicon-disassembler id="disassembler" auto offset="0" memory="0x1000"></silicon-disassembler>
+
+  <script>
+    var offset = document.getElementById('offset');
+    var memory = document.getElementById('memory');
+    var bytes = document.getElementById('bytes');
+    var disassembler = document.getElementById('disassembler');
+    var list = document.getElementById('list');
+
+    disassembler.addEventListener('instructions-disassembled', function(e) {
+      list.instructions = e.detail.instructions;
+      //console.log('list.instructions', list.instructions);
+    });
+
+    memory.addEventListener('input', function(e) {
+      var off = parseInt(e.target.value);
+      if (off || off == 0x0) {
+        disassembler.memory = off;
+        //console.log('new memory', disassembler.memory);
+      }
+    });
+
+    //console.log('disassembler', disassembler);
+    offset.addEventListener('input', function(e) {
+      var off = parseInt(e.target.value);
+      if (off || off == 0x0) {
+        disassembler.offset = off;
+        //console.log('new offset', disassembler.offset);
+      }
+    });
+
+    var toBytes = function(value) {
+      var arr = value.split(' ');
+      try {
+        if (arr && arr.length > 0){
+          var test = arr.map(function(el){
+            return parseInt(el);
+          });
+          var uint = new Uint8Array(test);
+//          console.log('size: ', uint.length);
+          return uint;
+        }
+      }catch (e){
+        console.log('Error: bad array', value)
+        return [];
+      }
+    };
+
+    disassembler.bytes = toBytes(bytes.value);
+
+    bytes.addEventListener('input', function(e) {
+      disassembler.bytes = toBytes(e.target.value);
+    });
+  </script>
+
+</body>
+
+</html>

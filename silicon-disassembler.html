@@ -1,0 +1,176 @@
+<link rel="import" href="../polymer/polymer.html">
+
+<!--
+An asynchronous disassembler which uses [capstone.js](https://github.com/AlexAltea/capstone.js)
+as the backend and Web Workers for non-blocking requests.
+
+Example:
+
+    <silicon-disassembler auto offset="0x0" memory="0x1000" bytes="[[byteArray]]"></silicon-disassembler>
+
+@demo
+-->
+<dom-module id="silicon-disassembler">
+
+  <style>
+    :host {
+      display: none;
+    }
+  </style>
+  <template></template>
+</dom-module>
+<script>
+  Polymer({
+
+    is: 'silicon-disassembler',
+
+    properties: {
+
+      /**
+       * Automatically disassembles the current `bytes` when `offset` or `bytes` changes.
+       *
+       * Use with care.
+       */
+      auto: {
+        type: Boolean,
+        value: false
+      },
+
+      /**
+       * The architecture to disassemble.  (Unimplemented)
+       */
+      arch: {
+        type: String,
+        value: 'x86'
+      },
+
+      /**
+       * The CPU mode.  (Unimplemented)
+       */
+      mode: {
+        type: Number,
+        value: 64
+      },
+
+      /**
+       * The offset into `bytes`.
+       */
+      offset: {
+        type: Number,
+        value: 0
+      },
+
+      /**
+      * The number of bytes to disassemble.
+      */
+      count: {
+        type: Number,
+        value: 16
+      },
+
+      /**
+       * The memory address at which the `bytes` reside.  This will be used in
+       * the instructions address calculation.
+       */
+      memory: {
+        type: Number,
+        value: 0x0
+      },
+
+      /**
+       * The bytes to be disassembled.
+       *
+       * @type {Uint8Array}
+       */
+      bytes: {
+        type: Array
+      },
+
+      /**
+       * The currently disassembled instructions.
+       *
+       * @type {[{address: Number, mnemonic: String, op_str: String}]}
+       */
+      instructions: {
+        type: Array,
+        value: []
+      },
+
+      /**
+       * The capstone.js Web Worker.
+       *
+       * @type {Worker}
+       */
+      _worker: {
+        type: Object
+      }
+
+    },
+
+    observers: ['_disassemble(offset, memory, bytes, _worker)'],
+
+    /**
+     * Manually initiate a disassembly request of `bytes` from `offset` to `bytes.length`
+     * at location `memory`.
+     *
+     * TODO: use [Transferable Objects](http://www.w3.org/html/wg/drafts/html/master/infrastructure.html#transferable-objects)
+     * from [Bidel article](http://www.html5rocks.com/en/tutorials/workers/basics/)
+     *
+     * After disassembly is finished, the result is stored in `instructions`
+     * and the `instructions-disassembled` event is fired.
+     */
+    disassemble: function() {
+      if (this.bytes.length > 0) {
+        if (this.offset >= this.bytes.length || this.offset < 0) {
+          console.warn('<silicon-disassembler>: bad offset %d for bytes len %d', this.offset, this.bytes.length);
+          return;
+        }
+        // TODO: remove and send only offset, once Transferbale Objects implemented
+        var bytes = this.bytes instanceof Uint8Array ? this.bytes.subarray(this.offset, this.offset + this.count) : this.bytes.slice(this.offset, this.offset + this.count);
+        this._worker.postMessage([this.memory, bytes]);
+      }
+    },
+
+    // TODO: remove the bytes observer, after Transferable Objects are implemented
+    /**
+     * Observer for `bytes`, `offset`, `memory`, and `worker`,
+     * which calls `disassemble()` if `auto`.
+     *
+     * @param {Number} offset The offset into `bytes`
+     * @param {Number} memory The beginning memory location of `bytes`
+     * @param {Uint8Array} bytes The bytes to be disassembled
+     * @param {Worker} worker The web worker we're sending our messages to
+     */
+    _disassemble: function(offset, memory, bytes, worker) {
+      if (this.auto) this.disassemble();
+    },
+
+    //
+
+    // Element Behavior
+
+    /**
+     * The `instructions-disassembled` event is fired when the capstone.js Web Worker
+     * is done disassembling the instructions (if any) in `bytes`.
+     *
+     * @event instructions-disassembled {instructions:[{address: Number, mnemonic: string, op_str: string}]}
+     */
+
+    // Element Lifecycle
+    ready: function() {
+      this._worker = new Worker(this.resolveUrl('capstoneworker.js'));
+      this._worker.onmessage = (function(e) {
+        this.instructions = e.data;
+        this.fire('instructions-disassembled', {
+          instructions: this.instructions
+        });
+      }).bind(this);
+    },
+
+    detached: function() {
+      this._worker.postMessage('delete');
+      this._worker.close();
+    }
+
+  });
+</script>
