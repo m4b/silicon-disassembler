@@ -128,7 +128,6 @@ Example:
     disassemble: function() {
       if (this._capstoneReady) {
         this._waitingForDisassembly = false;
-        console.log('capstone ready')
         this._worker.postMessage(['dis', this.offset, this.count, this.memory]);
       } else {
         // queues request until worker is ready

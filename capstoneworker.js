@@ -1,20 +1,21 @@
 importScripts('capstone.min.js');
 
 function computeCPU(archstr, modenum){
-  //console.log('arch, mode', archstr, modenum);
+  //console.log('arch, mode', archstr, modenum, capstone);
   var mode = capstone.MODE_64;
   var arch = capstone.ARCH_X86;
   if (archstr === 'x86' || archstr === 'X86'){
-    console.log('capstone', capstone);
     if (modenum === 64) mode = capstone.MODE_64;
     if (modenum === 32) mode = capstone.MODE_32;
     if (modenum === 16) mode = capstone.MODE_16;
   } else if (archstr === 'arm' || archstr === 'ARM'){
-    console.log('capstone', capstone);
     if (modenum == 64) mode = capstone.MODE_ARM;
     if (modenum == 32) mode = capstone.MODE_ARM;
-    if (modenum == 16) mode = capstone.MODE_THUMB;
     arch = mode === 64 ? capstone.ARCH_ARM64 : capstone.ARCH_ARM64;
+    if (modenum == 16){
+      mode = capstone.MODE_THUMB;
+      arch = capstone.ARCH_ARM;
+    }
   }
   return {arch: arch, mode: mode};
 }

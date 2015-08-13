@@ -43,7 +43,7 @@
     <!-- <instruction-list id="list"></instruction-list> -->
     <silicon-instructions id="list" instructions="[[instructions]]"></silicon-instructions>
     <!-- [0x55, 0x48, 0x8b, 0x05, 0xb8, 0x13, 0x00, 0x00] -->
-    <silicon-disassembler id="disassembler" arch="arm" auto count="0" offset="0" memory="0x1000" instructions="{{instructions}}"></silicon-disassembler>
+    <silicon-disassembler id="disassembler" arch="x86" mode="64" auto count="0" offset="0" memory="0" instructions="{{instructions}}"></silicon-disassembler>
   </template>
 
   <script>
@@ -108,7 +108,6 @@
 
       bytes.addEventListener('input', function(e) {
         disassembler.bytes = toBytes(e.target.value);
-        console.log('e', e);
       });
     });
   </script>
