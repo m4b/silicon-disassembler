@@ -1,0 +1,193 @@
+<link rel="import" href="../polymer/polymer.html">
+
+<!--
+An asynchronous disassembler which uses [capstone.js](https://github.com/AlexAltea/capstone.js)
+as the backend and Web Workers for non-blocking requests.
+
+Example:
+
+    <silicon-disassembler auto offset="0x0" memory="0x1000" bytes="[[byteArray]]"></silicon-disassembler>
+
+@element silicon-disassembler
+@demo
+-->
+<dom-module id="silicon-disassembler">
+
+  <style>
+    :host {
+      display: none;
+    }
+  </style>
+  <template></template>
+</dom-module>
+<script>
+  Polymer({
+
+    is: 'silicon-disassembler',
+
+    properties: {
+
+      /**
+       * Automatically disassembles the current `bytes` when `offset`, `bytes`,
+       * `count`, or `memory` changes.
+       *
+       * Use with care.
+       */
+      auto: {
+        type: Boolean,
+        value: false
+      },
+
+      /**
+       * The architecture to disassemble.  'x86' and 'arm' are supported.
+       */
+      arch: {
+        type: String,
+        value: 'x86'
+      },
+
+      /**
+       * The CPU mode.  64, 32, and 16-bit supported.
+       */
+      mode: {
+        type: Number,
+        value: 64
+      },
+
+      /**
+       * The offset into `bytes`.
+       */
+      offset: {
+        type: Number,
+        value: 0
+      },
+
+      /**
+       * The number of bytes to disassemble.  Set to 0 to disassemble up to
+       *  `bytes.length`; use with care.
+       */
+      count: {
+        type: Number,
+        value: 64
+      },
+
+      /**
+       * The memory address at which the `bytes` reside.  This will be used in
+       * the instructions address calculation.
+       */
+      memory: {
+        type: Number,
+        value: 0x0
+      },
+
+      /**
+       * The bytes to be disassembled.  It is best to send them all at once, and then
+       * use `offset` and `count` to request disassembly.
+       *
+       * *WARNING* since this is a Transferred Object, _do not_ two-way data-bind to this.
+       *
+       * @type {Uint8Array}
+       */
+      bytes: {
+        type: Array,
+        observer: '_init'
+      },
+
+      /**
+       * The currently disassembled instructions.
+       *
+       * @type {[{address: Number, mnemonic: String, op_str: String}]}
+       */
+      instructions: {
+        type: Array,
+        notify: true,
+        value: []
+      },
+
+      /**
+       * The capstone.js Web Worker.
+       *
+       * @type {Worker}
+       */
+      _worker: {
+        type: Object
+      }
+
+    },
+
+    observers: ['_disassemble(offset, memory, count, _worker)'],
+
+    /**
+     * Manually initiate a disassembly request of `bytes` from `offset` to `bytes.length`
+     * at location `memory`.  If the capstone Web Worker isn't ready, the request is
+     * queued until it is.
+     *
+     * After disassembly is finished, the result is stored in `instructions`
+     * and the `instructions-changed` event is fired.
+     */
+    disassemble: function() {
+      if (this._capstoneReady) {
+        this._waitingForDisassembly = false;
+        this._worker.postMessage(['dis', this.offset, this.count, this.memory]);
+      } else {
+        // queues request until worker is ready
+        this._waitingForDisassembly = true;
+        console.log('capstone not ready, disassembly queued');
+      }
+    },
+
+    /**
+     * Observer for `offset`, `memory`, `count`, and `worker`,
+     * which calls `disassemble()` if `auto`.
+     *
+     * @param {Number} offset The offset into `bytes`
+     * @param {Number} memory The beginning memory location of `bytes`
+     * @param {Number} count The number of bytes to disassemble
+     * @param {Worker} worker The web worker we're sending our messages to
+     */
+    _disassemble: function(offset, memory, count, worker) {
+      if (this.auto) this.disassemble();
+    },
+
+    /**
+    * Observer for `bytes`.  Uses a [Transferable Object](http://www.w3.org/html/wg/drafts/html/master/infrastructure.html#transferable-objects)
+    * for better performance (hopefully).
+    */
+    _init: function(bytes) {
+      // because we might still be queued from a manual call
+      this._waitingForDisassembly = this.auto || this._waitingForDisassembly;
+      //sharedBytes = new Uint8Array(bytes); // this might defeat the purpose of a TO if the binary is large enough
+      //this._worker.postMessage(['init', sharedBytes.buffer, this.arch, this.mode], [sharedBytes.buffer]);
+      this._worker.postMessage(['init', bytes.buffer, this.arch, this.mode], [bytes.buffer]);
+    },
+
+    // Element Behavior
+
+    /**
+     * The `instructions-changed` event is fired when the capstone.js Web Worker
+     * is done disassembling the instructions (if any) in `bytes`.
+     *
+     * @event instructions-changed {detail:[{address: Number, mnemonic: string, op_str: string}]}
+     */
+
+    // Element Lifecycle
+    ready: function() {
+      this._worker = new Worker(this.resolveUrl('capstoneworker.js'));
+      this._worker.onmessage = (function(e) {
+        if (e.data[0] === 'ready') {
+          this._capstoneReady = e.data[1];
+          if (this._waitingForDisassembly) {
+            this.disassemble();
+          }
+        } else {
+          this.instructions = e.data[1];
+        }
+      }).bind(this);
+    },
+
+    detached: function() {
+      this._worker.postMessage(['close']);
+    }
+
+  });
+</script>

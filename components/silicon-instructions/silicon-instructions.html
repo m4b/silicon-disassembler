@@ -1,0 +1,52 @@
+<link rel="import" href="../polymer/polymer.html">
+<link rel="import" href="silicon-instruction.html">
+
+<!--
+Display `<silicon-instruction>`s in a list-like format.  Works well with [silicon-disassembler](http://github.com/m4b/silicon-disassembler).
+
+Example:
+
+<silicon-instructions instructions="[[instructions]]"></silicon-instructions>
+
+@demo
+-->
+<dom-module id="silicon-instructions">
+
+  <style>
+   :host {
+     display: block;
+     box-sizing: border-box;
+     --font-size: 12px;
+   }
+   /* there's an infinite loop bug for now apparently in chrome if the css custom variable is the same for the host as the child; must report */
+   silicon-instruction {
+     --f-size: var(--font-size);
+   }
+  </style>
+  <template>
+    <template is="dom-repeat" items="[[instructions]]" as="inst">
+      <silicon-instruction address="[[inst.address]]" mnemonic="[[inst.mnemonic]]" operand="[[inst.op_str]]"></silicon-instruction>
+    </template>
+  </template>
+
+</dom-module>
+
+<script>
+
+ Polymer({
+
+   is: 'silicon-instructions',
+
+   properties: {
+     /*
+      * The instructions to display.
+      */
+     instructions: {
+       type: Array,
+       value: []
+     }
+   }
+
+ });
+
+</script>

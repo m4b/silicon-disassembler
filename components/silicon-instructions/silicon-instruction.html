@@ -1,0 +1,111 @@
+<link rel="import" href="../polymer/polymer.html">
+<!--
+A single instruction, consisting of `address`, `mnemonic`, and `operand`.  Works well with [silicon-disassembler](http://github.com/m4b/silicon-disassembler) and `silicon-instructions`.
+
+Example:
+
+          <silicon-instruction address="[[inst.address]]" mnemonic="[[inst.mnemonic]]" operand="[[inst.op_str]]"></silicon-instruction>
+
+@demo
+-->
+<dom-module id="silicon-instruction">
+  <style>
+    :host {
+      display: block;
+      font-family: 'Inconsolata', monospace;
+      --f-size: 16px;
+    }
+
+    code {
+      font-family: 'Inconsolata', monospace;
+      font-size: var(--f-size);
+    }
+  </style>
+  <script src="highlight.pack.js"></script>
+  <template>
+    <link rel="stylesheet" href$="[[_styleHref]]">
+    <code id="inst" class="hljs"></code>
+  </template>
+  <script>
+    (function() {
+      Polymer({
+        is: 'silicon-instruction',
+        properties: {
+          /**
+           * The address of the instruction.
+           */
+          address: {
+            type: Number
+          },
+          /**
+           * The instruction opcode mnemonic.
+           */
+          mnemonic: {
+            type: String
+          },
+          /**
+           * The operand(s) of the instruction.
+           */
+          operand: {
+            type: String
+          },
+          /**
+           * The style to highlight the instruction with.
+           *
+           * Valid styles are in the `.css` files in the `highlight.js` packaged, modulo the suffix.
+           */
+          style: {
+            type: String,
+            value: 'zenburn'
+          },
+          /**
+          * The computed style for the instruction.
+          */
+          _styleHref: {
+            type: String,
+            computed: '_computeStyleHref(style)'
+          },
+
+          /**
+           * The combined instruction string.
+           */
+          string: {
+            type: String,
+            notify: true,
+            computed: '_combine(mnemonic, operand)'
+          }
+        },
+
+        observers: ['_changed(address, string)'],
+
+        _computeStyleHref: function(style){
+          //console.log('returning: ', 'styles/' + style + '.css');
+          return this.resolveUrl('styles/' + style + '.css');
+        },
+
+        /**
+         * Updates the code tag with highlighting.
+         *
+         * @param {Number} address The address where the instruction starts
+         * @param {String} code The combined mnemonic + operands
+         */
+        _changed: function(address, code) {
+          var innerHTML = hljs.highlightAuto(code).value;
+          //hacksss
+          innerHTML = '&lt;' + '<span class=\"hljs-number\">' + address + '</span>' + '&gt; ' + innerHTML;
+          Polymer.dom(this.$.inst).innerHTML = innerHTML;
+        },
+
+        /**
+         * Combines the mnemonic with the operand
+         * @param {String} mnemonic The opcode instruction mnemonic
+         * @param {String} operand The instruction's operand(s)
+         * @return {String} The combined mnemonic + operands
+         */
+        _combine: function(mnemonic, operand) {
+          return mnemonic + ' ' + operand;
+        }
+      });
+    })();
+  </script>
+</dom-module>

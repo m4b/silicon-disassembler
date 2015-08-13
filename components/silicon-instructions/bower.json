@@ -1,0 +1,33 @@
+{
+  "name": "silicon-instructions",
+  "version": "1.0.3",
+  "authors": [
+    "m4b <m4b.github.io@gmail.com>"
+  ],
+  "description": "Display assembly instructions in a list-like format, using highlight.js",
+  "keywords": [
+      "web-component",
+      "web-components",
+      "instructions",
+      "instruction",
+      "highlight.js",
+      "assembly",
+      "syntax highlighting",
+      "polymer"
+  ],
+  "main": "silicon-instructions.html",
+  "license": "LICENSE",
+  "homepage": "https://github.com/m4b/silicon-instructions/",
+  "ignore": [
+    "/.*",
+    "/test/",
+    "/demo/"
+  ],
+  "dependencies": {
+    "polymer": "Polymer/polymer#^1.0.0"
+  },
+  "devDependencies": {
+    "iron-component-page": "PolymerElements/iron-component-page#^1.0.0",
+    "web-component-tester": "*"
+  }
+}
