@@ -8,6 +8,7 @@ Example:
 
     <silicon-disassembler auto offset="0x0" memory="0x1000" bytes="[[byteArray]]"></silicon-disassembler>
 
+@element silicon-disassembler
 @demo
 -->
 <dom-module id="silicon-disassembler">
@@ -27,7 +28,8 @@ Example:
     properties: {
 
       /**
-       * Automatically disassembles the current `bytes` when `offset` or `bytes` changes.
+       * Automatically disassembles the current `bytes` when `offset`, `bytes`,
+       * `count`, or `memory` changes.
        *
        * Use with care.
        */
@@ -37,7 +39,7 @@ Example:
       },
 
       /**
-       * The architecture to disassemble.  (Unimplemented)
+       * The architecture to disassemble.  'x86' and 'arm' are supported.
        */
       arch: {
         type: String,
@@ -45,7 +47,7 @@ Example:
       },
 
       /**
-       * The CPU mode.  (Unimplemented)
+       * The CPU mode.  64, 32, and 16-bit supported.
        */
       mode: {
         type: Number,
@@ -61,11 +63,12 @@ Example:
       },
 
       /**
-      * The number of bytes to disassemble.
-      */
+       * The number of bytes to disassemble.  Set to 0 to disassemble up to
+       *  `bytes.length`; use with care.
+       */
       count: {
         type: Number,
-        value: 16
+        value: 64
       },
 
       /**
@@ -78,12 +81,16 @@ Example:
       },
 
       /**
-       * The bytes to be disassembled.
+       * The bytes to be disassembled.  It is best to send them all at once, and then
+       * use `offset` and `count` to request disassembly.
+       *
+       * *WARNING* since this is a Transferred Object, _do not_ two-way data-bind to this.
        *
        * @type {Uint8Array}
        */
       bytes: {
-        type: Array
+        type: Array,
+        observer: '_init'
       },
 
       /**
@@ -108,69 +115,79 @@ Example:
 
     },
 
-    observers: ['_disassemble(offset, memory, bytes, _worker)'],
+    observers: ['_disassemble(offset, memory, count, _worker)'],
 
     /**
      * Manually initiate a disassembly request of `bytes` from `offset` to `bytes.length`
-     * at location `memory`.
-     *
-     * TODO: use [Transferable Objects](http://www.w3.org/html/wg/drafts/html/master/infrastructure.html#transferable-objects)
-     * from [Bidel article](http://www.html5rocks.com/en/tutorials/workers/basics/)
+     * at location `memory`.  If the capstone Web Worker isn't ready, the request is
+     * queued until it is.
      *
      * After disassembly is finished, the result is stored in `instructions`
      * and the `instructions-disassembled` event is fired.
      */
     disassemble: function() {
-      if (this.bytes.length > 0) {
-        if (this.offset >= this.bytes.length || this.offset < 0) {
-          console.warn('<silicon-disassembler>: bad offset %d for bytes len %d', this.offset, this.bytes.length);
-          return;
-        }
-        // TODO: remove and send only offset, once Transferbale Objects implemented
-        var bytes = this.bytes instanceof Uint8Array ? this.bytes.subarray(this.offset, this.offset + this.count) : this.bytes.slice(this.offset, this.offset + this.count);
-        this._worker.postMessage([this.memory, bytes]);
+      if (this._capstoneReady) {
+        this._waitingForDisassembly = false;
+        console.log('capstone ready')
+        this._worker.postMessage(['dis', this.offset, this.count, this.memory]);
+      } else {
+        // queues request until worker is ready
+        this._waitingForDisassembly = true;
+        console.log('capstone not ready, disassembly queued');
       }
     },
 
-    // TODO: remove the bytes observer, after Transferable Objects are implemented
     /**
-     * Observer for `bytes`, `offset`, `memory`, and `worker`,
+     * Observer for `offset`, `memory`, `count`, and `worker`,
      * which calls `disassemble()` if `auto`.
      *
      * @param {Number} offset The offset into `bytes`
      * @param {Number} memory The beginning memory location of `bytes`
-     * @param {Uint8Array} bytes The bytes to be disassembled
+     * @param {Number} count The number of bytes to disassemble
      * @param {Worker} worker The web worker we're sending our messages to
      */
-    _disassemble: function(offset, memory, bytes, worker) {
+    _disassemble: function(offset, memory, count, worker) {
       if (this.auto) this.disassemble();
     },
 
-    //
+    /**
+    * Observer for `bytes`.  Uses a [Transferable Object](http://www.w3.org/html/wg/drafts/html/master/infrastructure.html#transferable-objects)
+    * for better performance (hopefully).
+    */
+    _init: function(bytes) {
+      // because we might still be queued from a manual call
+      this._waitingForDisassembly = this.auto || this._waitingForDisassembly;
+      //sharedBytes = new Uint8Array(bytes); // this might defeat the purpose of a TO if the binary is large enough
+      //this._worker.postMessage(['init', sharedBytes.buffer, this.arch, this.mode], [sharedBytes.buffer]);
+      this._worker.postMessage(['init', bytes.buffer, this.arch, this.mode], [bytes.buffer]);
+    },
 
     // Element Behavior
 
     /**
-     * The `instructions-disassembled` event is fired when the capstone.js Web Worker
+     * The `instructions-changed` event is fired when the capstone.js Web Worker
      * is done disassembling the instructions (if any) in `bytes`.
      *
-     * @event instructions-disassembled {instructions:[{address: Number, mnemonic: string, op_str: string}]}
+     * @event instructions-changed {detail:[{address: Number, mnemonic: string, op_str: string}]}
      */
 
     // Element Lifecycle
     ready: function() {
       this._worker = new Worker(this.resolveUrl('capstoneworker.js'));
       this._worker.onmessage = (function(e) {
-        this.instructions = e.data;
-        this.fire('instructions-disassembled', {
-          instructions: this.instructions
-        });
+        if (e.data[0] === 'ready') {
+          this._capstoneReady = e.data[1];
+          if (this._waitingForDisassembly) {
+            this.disassemble();
+          }
+        } else {
+          this.instructions = e.data[1];
+        }
       }).bind(this);
     },
 
     detached: function() {
-      this._worker.postMessage('delete');
-      this._worker.close();
+      this._worker.postMessage(['close']);
     }
 
   });

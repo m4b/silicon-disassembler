@@ -8,13 +8,16 @@
   <script src="../../webcomponentsjs/webcomponents-lite.js"></script>
   <link rel="import" href="../silicon-disassembler.html">
   <link rel="import" href="instruction-list.html">
+  <link rel="import" href="../../silicon-instructions/silicon-instructions.html">
   <style>
     span {
       margin-right: 4px;
     }
+
     instruction-list {
       padding-top: 16px;
     }
+
     #bytes {
       width: 100%;
     }
@@ -23,71 +26,90 @@
 
 <body>
 
-  <p>An example of
-    <code>&lt;silicon-disassembler&gt;</code>:</p>
+  <template id="t" is="dom-bind">
+    <p>An example of
+      <code>&lt;silicon-disassembler&gt;</code>:</p>
 
-  <span>Memory:</span>
-  <input id="memory" value="0x1000"></input>
-  <span>Offset:</span>
-  <input id="offset" value="0"></input>
-  <br>
-  <span>Bytes:</span>
-  <input id="bytes" value="0x55 0x48 0x8b 0x05 0xb8 0x13 0x00 0x00 0x55"></input>
+    <span>Memory:</span>
+    <input id="memory" value="0x1000"></input>
+    <span>Offset:</span>
+    <input id="offset" value="0"></input>
+    <span>Count:</span>
+    <input id="count" value="32"></input>
+    <br>
+    <span>Bytes:</span>
+    <input id="bytes" value="48 83 ec 08 48 8b 05 45 05 20 00 48 85 c0 74 05 e8 3b 00 00 00 48 83 c4 08 c3"></input>
 
-  <instruction-list id="list"></instruction-list>
-  <!-- [0x55, 0x48, 0x8b, 0x05, 0xb8, 0x13, 0x00, 0x00] -->
-  <silicon-disassembler id="disassembler" auto offset="0" memory="0x1000"></silicon-disassembler>
+    <!-- <instruction-list id="list"></instruction-list> -->
+    <silicon-instructions id="list" instructions="[[instructions]]"></silicon-instructions>
+    <!-- [0x55, 0x48, 0x8b, 0x05, 0xb8, 0x13, 0x00, 0x00] -->
+    <silicon-disassembler id="disassembler" arch="arm" auto count="0" offset="0" memory="0x1000" instructions="{{instructions}}"></silicon-disassembler>
+  </template>
 
   <script>
-    var offset = document.getElementById('offset');
-    var memory = document.getElementById('memory');
-    var bytes = document.getElementById('bytes');
-    var disassembler = document.getElementById('disassembler');
-    var list = document.getElementById('list');
+    // The dom-change event signifies when the template has stamped its DOM.
+    document.getElementById('t').addEventListener('dom-change', function() {
+      // auto-binding template is ready.
+      var count = document.getElementById('count');
+      var offset = document.getElementById('offset');
+      var memory = document.getElementById('memory');
+      var bytes = document.getElementById('bytes');
+      var disassembler = document.getElementById('disassembler');
+      var list = document.getElementById('list');
 
-    disassembler.addEventListener('instructions-disassembled', function(e) {
-      list.instructions = e.detail.instructions;
-      //console.log('list.instructions', list.instructions);
-    });
+      disassembler.addEventListener('instructions-changed', function(e) {
+        list.instructions = e.detail.value;
+        //console.log('changed list.instructions', e.detail.value);
+      });
 
-    memory.addEventListener('input', function(e) {
-      var off = parseInt(e.target.value);
-      if (off || off == 0x0) {
-        disassembler.memory = off;
-        //console.log('new memory', disassembler.memory);
-      }
-    });
-
-    //console.log('disassembler', disassembler);
-    offset.addEventListener('input', function(e) {
-      var off = parseInt(e.target.value);
-      if (off || off == 0x0) {
-        disassembler.offset = off;
-        //console.log('new offset', disassembler.offset);
-      }
-    });
-
-    var toBytes = function(value) {
-      var arr = value.split(' ');
-      try {
-        if (arr && arr.length > 0){
-          var test = arr.map(function(el){
-            return parseInt(el);
-          });
-          var uint = new Uint8Array(test);
-//          console.log('size: ', uint.length);
-          return uint;
+      count.addEventListener('input', function(e) {
+        //console.log('e', e);
+        var c = parseInt(e.target.value);
+        if (c || c == 0x0) {
+          disassembler.count = c;
         }
-      }catch (e){
-        console.log('Error: bad array', value)
-        return [];
-      }
-    };
+      });
 
-    disassembler.bytes = toBytes(bytes.value);
+      memory.addEventListener('input', function(e) {
+        var off = parseInt(e.target.value);
+        if (off || off == 0x0) {
+          disassembler.memory = off;
+          //console.log('new memory', disassembler.memory);
+        }
+      });
 
-    bytes.addEventListener('input', function(e) {
-      disassembler.bytes = toBytes(e.target.value);
+      //console.log('disassembler', disassembler);
+      offset.addEventListener('input', function(e) {
+        var off = parseInt(e.target.value);
+        if (off || off == 0x0) {
+          disassembler.offset = off;
+          //console.log('new offset', disassembler.offset);
+        }
+      });
+
+      var toBytes = function(value) {
+        var arr = value.split(' ');
+        try {
+          if (arr && arr.length > 0) {
+            var test = arr.map(function(el) {
+              return parseInt(el, 16);
+            });
+            var uint = new Uint8Array(test);
+            //          console.log('size: ', uint.length);
+            return uint;
+          }
+        } catch (e) {
+          console.log('Error: bad array', value)
+          return [];
+        }
+      };
+
+      disassembler.bytes = toBytes(bytes.value);
+
+      bytes.addEventListener('input', function(e) {
+        disassembler.bytes = toBytes(e.target.value);
+        console.log('e', e);
+      });
     });
   </script>
 
